@@ -154,7 +154,8 @@ public:
 
 private:
 	std::vector<AudioBufferInfo> buffers;
-	AudioBuffer<float> silent_buffer;
+	AudioBuffer<float>           silent_ab;
+
 public:
 	class AudioListener : public TimeSliceClient {
 	private:
@@ -172,8 +173,8 @@ public:
 		size_t   silent_buffer_size = 0;
 		uint8_t *silent_buffer      = nullptr;
 
-		bool set_data(AudioBufferInfo *info, const AudioBuffer<float> &sb, obs_source_audio &out, const std::vector<short> &route,
-				int *sample_rate)
+		bool set_data(AudioBufferInfo *info, const AudioBuffer<float> &sb, obs_source_audio &out,
+				const std::vector<short> &route, int *sample_rate)
 		{
 			out.speakers        = in.speakers;
 			out.samples_per_sec = info->out.samples_per_sec;
@@ -183,19 +184,11 @@ public:
 
 			*sample_rate = out.samples_per_sec;
 
-<<<<<<< HEAD
-			int       ichs = info->buffer.getNumChannels();
-			int       ochs = get_audio_channels(out.speakers);
-			uint8_t **data = (uint8_t **)info->buffer.getArrayOfWritePointers();
-			uint8_t **sb_data = (uint8_t**)sb.getArrayOfWritePointers();
-			uint8_t *silent_buffer_ptr = sb_data[0];
-=======
 			int       ichs              = info->buffer.getNumChannels();
 			int       ochs              = get_audio_channels(out.speakers);
 			uint8_t **data              = (uint8_t **)(info->buffer.getArrayOfWritePointers());
 			uint8_t **sb_data           = (uint8_t **)(sb.getArrayOfReadPointers());
 			uint8_t  *silent_buffer_ptr = sb_data[0];
->>>>>>> 5c44a0d (patch: bump version)
 
 			bool muted = true;
 			for (int i = 0; i < ochs; i++) {
@@ -277,17 +270,12 @@ public:
 
 			while (read_index != write_index) {
 				obs_source_audio out;
-<<<<<<< HEAD
-				bool unmuted = set_data(&callback->buffers[read_index], callback->silent_buffer, out, _route_out, &sample_rate);
-				//if (unmuted && out.speakers)
-=======
 				bool unmuted = set_data(&callback->buffers[read_index], callback->silent_ab, out,
 						_route_out, &sample_rate);
 				// if (unmuted && out.speakers)
->>>>>>> 5c44a0d (patch: bump version)
 				obs_source_output_audio(source, &out);
 				max_sample_rate = (sample_rate > max_sample_rate) ? sample_rate : max_sample_rate;
-				read_index = (read_index + 1) % m;
+				read_index      = (read_index + 1) % m;
 			}
 			wait_time = ((1000 / 2) * AUDIO_OUTPUT_FRAMES) / max_sample_rate;
 			return wait_time;
@@ -385,9 +373,9 @@ public:
 			inf.out.samples_per_sec = sample_rate;
 			buffers.push_back(inf);
 		}
-		//cache the silent buffer at the device level
-		silent_ab = AudioBuffer<float>(1, buf_size);
-		float* samples = silent_ab.getWritePointer(0);
+		// cache the silent buffer at the device level
+		silent_ab      = AudioBuffer<float>(1, buf_size);
+		float *samples = silent_ab.getWritePointer(0);
 		for (size_t sample = 0; sample < buf_size; sample++) {
 			samples[sample] = 0.0f;
 		}
@@ -617,6 +605,7 @@ public:
 				std::string route_str = "route " + std::to_string(i);
 				r.push_back(obs_data_get_int(settings, route_str.c_str()));
 			}
+
 			for (int i = recorded_channels; i < max_channels; i++) {
 				r.push_back(-1);
 			}
@@ -719,7 +708,6 @@ static bool fill_out_channels_modified(obs_properties_t *props, obs_property_t *
 	int               input_channels = in_names.size();
 
 	int i = 0;
-
 	for (; i < input_channels; i++)
 		obs_property_list_add_int(list, in_names[i].toStdString().c_str(), i);
 
@@ -735,7 +723,6 @@ static bool asio_device_changed(void *vptr, obs_properties_t *props, obs_propert
 	obs_property_t *panel        = obs_properties_get(props, "ctrl");
 
 	int recorded_channels = get_audio_channels(layout);
-
 	size_t itemCount = obs_property_list_item_count(list);
 	bool   itemFound = false;
 
@@ -754,7 +741,7 @@ static bool asio_device_changed(void *vptr, obs_properties_t *props, obs_propert
 		for (i = 0; i < max_channels; i++) {
 			std::string     name = "route " + std::to_string(i);
 			obs_property_t *r    = obs_properties_get(props, name.c_str());
-			obs_property_list_clear(r);
+			fill_out_channels_modified(props, r, settings);
 			obs_property_set_modified_callback(r, fill_out_channels_modified);
 			obs_property_set_visible(r, i < recorded_channels);
 		}
@@ -779,7 +766,7 @@ static bool asio_layout_changed(obs_properties_t *props, obs_property_t *list, o
 	for (i = 0; i < max_channels; i++) {
 		std::string     name = "route " + std::to_string(i);
 		obs_property_t *r    = obs_properties_get(props, name.c_str());
-		obs_property_list_clear(r);
+		fill_out_channels_modified(props, r, settings);
 		obs_property_set_modified_callback(r, fill_out_channels_modified);
 		obs_property_set_visible(r, i < recorded_channels);
 	}
